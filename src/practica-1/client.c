@@ -5,7 +5,9 @@
 #include "client.h"		// Include propio en directorio actual
 
 #define MIN_PARAMS 2		// EL nombre de programa es un parametro
-#define MAX_PARAMS 2		// Incluido el nombre de programa
+#define MAX_PARAMS 8		// Incluido el nombre de programa
+
+#define SUMA(par1,par2)	((par1)+(par2))
 
 /********************* PROGRAMA DE LA PRACTICA X **************************/
 /* Historia:
@@ -48,6 +50,8 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	print_parameters(argc,argv);
+	printf("Suma=%d\n",SUMA(5+1,4/2));
+	printf("Suma=%d\n",((5+1)+(4/2)));
 	exit(0);
 }
 
