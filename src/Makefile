@@ -8,9 +8,11 @@ all:
 	make -C practica-1
 	make -C practica-2
 	make -C libraries
+	make -C app
 
 clean: 
 	make -C practica-1 clean
 	make -C practica-2 clean
 	make -C libraries clean
+	make -C app clean
 

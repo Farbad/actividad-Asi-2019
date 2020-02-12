@@ -1,4 +1,5 @@
 
+#include <ctype.h>
 #include "utils.h"
 
 /************************* MODULO DE FUNCIONES DE INTERES *****************/

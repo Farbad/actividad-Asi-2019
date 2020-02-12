@@ -8,11 +8,27 @@
 #include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
+
+#include "utils.h"
 
 #define FILENAME "intercambio"
 //#define TRACE 0
+//
+#define MAX_THR 4
 
 int flg=0;
+int nthr=0;
+int nthrlaunched=0;
+int nthrexited=0;
+
+pthread_t pthread[MAX_THR];
+
+void trap_SIG2(int sig)
+{
+	printf("He recibido la señal %d\n",sig);
+	nthr++;
+}
 
 void trap_SIG1(int sig)
 {
@@ -26,7 +42,7 @@ int fd;
 #ifdef TRACE
 	if( (fd=creat(FILENAME,0666)) == -1) {
 #else
-	if( (fd=open(FILENAME,O_CREAT|O_TRUNC|O_WRONLY|0666)) == -1) {
+	if( (fd=open(FILENAME,O_CREAT|O_TRUNC|O_WRONLY,0666)) == -1) {
 #endif
 
 		perror("Error creando fichero:");
@@ -36,32 +52,45 @@ int fd;
 	write(fd,msg,strlen(msg));
 	close(fd);
 }
-int child1_work(int pid)
+int child2_work(int pid)
 {
 char buf[256];
 	while(1) {
 		printf("Pon una linea:\n");
-		gets(buf);
+		fgets(buf,sizeof(buf),stdin);
 		printf("RECIBIDO:%s\n",buf);
 		if(!strcmp(buf,"salir"))
 			break;
 		creat_mess(buf);
 		kill(pid,SIGUSR1);
 	}
+	kill(pid,SIGKILL);
+	return(1);
 }
 
-child2_work()
+int child1_work()
 {
 char buf[256];
 int fd,n;
-	if( (fd=open(FILENAME,O_RDONLY|0666)) == -1) {
+	if( (fd=open(FILENAME,O_RDONLY,0666)) == -1) {
 		perror("Problemas leyendo:");
 		exit(3);
 	}
-	n=read(fd,buf,sizeof(buf))
+	n=read(fd,buf,sizeof(buf));
 	close(fd);
+	buf[n]=0;
 	toupper_str(buf);
 	printf("MENSAJE TRADUCIDO:<%s>\n",buf);
+	return(1);
+}
+
+void *start_thr(void *arg)
+{
+	int id;
+	printf("Estoy ejecutando el thread %d\n", id=pthread_self());
+	printf("Voy a esperar 4 segundos anets de morir %d\n",id);
+	sleep(4);
+	printf("Acabe mi ejecución %d.\n",id);
 }
 
 int main(int argc,char *argv[])
@@ -69,7 +98,7 @@ int main(int argc,char *argv[])
 pid_t pid1,pid2;
 int status;
 
-	printf("Estoy encendido....\n");
+	printf("Estoy encendido.... LA SEÑAL SUGUSR2 es:%d\n",SIGUSR2);
 
 	if((pid1=fork()) !=0 ) {
 		//PADRE
@@ -78,9 +107,9 @@ int status;
 			printf("He creado el hijo 2:%d\n",pid2);
 		} else {
 			//HIJO 2
-			printf("Soy el hijo 2 y mi hermano es el pid=%d\n",pid1);
+//			printf("Soy el hijo 2 y mi hermano es el pid=%d\n",pid1);
 		
-			child1_work(pid1);
+			child2_work(pid1);
 			exit(0);
 		}
 
@@ -92,14 +121,21 @@ int status;
 
 	} else {
 		signal(SIGUSR1,trap_SIG1);
+		printf("Preparado para recibir la señal SIGUSR2\n");
+		signal(SIGUSR2,trap_SIG2);
 		//HIJO 1
 		while(1) {
-			printf("Soy el hijo 1:%ld\n",getpid());
+//			printf("Soy el hijo 1:%ld\n",getpid());
 			sleep(4);
 			if(flg) {
 				//Codigo
-				child2_work();
+				child1_work();
 				flg=0;
+			}
+			if((nthr > nthrlaunched) && (nthr<MAX_THR)) {
+				printf("Lanzando un nuevo thread: %d\n",nthrlaunched+1);
+				pthread_create(&pthread[nthr-1],NULL,start_thr,NULL);
+				nthrlaunched++;
 			}
 		}
 		exit(1);
