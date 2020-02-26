@@ -17,7 +17,10 @@
 //
 #define MAX_THR 4
 
-int flg=0;
+//#define PRACT1
+#define PRACT2
+
+int flg=1;
 int nthr=0;
 int nthrlaunched=0;
 int nthrexited=0;
@@ -36,6 +39,7 @@ void trap_SIG1(int sig)
 	flg=1;
 }
 
+#ifdef PRACT1
 int creat_mess(char *msg)
 {
 int fd;
@@ -52,6 +56,9 @@ int fd;
 	write(fd,msg,strlen(msg));
 	close(fd);
 }
+#endif
+
+#ifdef PRACT1
 int child2_work(int pid)
 {
 char buf[256];
@@ -67,7 +74,23 @@ char buf[256];
 	kill(pid,SIGKILL);
 	return(1);
 }
+#else
+int child2_work(int fd)
+{
+char buf[256];
+	while(1) {
+		printf("Pon una linea:\n");
+		fgets(buf,sizeof(buf),stdin);
+		printf("RECIBIDO:%s\n",buf);
+		if(!strcmp(buf,"salir"))
+			break;
+		write(fd,buf,strlen(buf));
+	}
 
+}
+#endif
+
+#ifdef PRACT1
 int child1_work()
 {
 char buf[256];
@@ -83,6 +106,18 @@ int fd,n;
 	printf("MENSAJE TRADUCIDO:<%s>\n",buf);
 	return(1);
 }
+#else
+int child1_work(int fd)
+{
+char buf[256];
+int n;
+	n=read(fd,buf,sizeof(buf));
+	buf[n]=0;
+	toupper_str(buf);
+	printf("MENSAJE TRADUCIDO:<%s>\n",buf);
+	return(1);
+}
+#endif
 
 void *start_thr(void *arg)
 {
@@ -97,9 +132,16 @@ int main(int argc,char *argv[])
 {
 pid_t pid1,pid2;
 int status;
+#ifdef PRACT2
+int fd[2];
+#endif
 
 	printf("Estoy encendido.... LA SEÑAL SUGUSR2 es:%d\n",SIGUSR2);
 
+#ifdef PRACT2
+	pipe(fd);
+	printf("Los descriptores del pipe son: %d %d\n",fd[0],fd[1]);
+#endif
 	if((pid1=fork()) !=0 ) {
 		//PADRE
 		printf("He creado el hijo 1:%d\n",pid1);
@@ -109,7 +151,12 @@ int status;
 			//HIJO 2
 //			printf("Soy el hijo 2 y mi hermano es el pid=%d\n",pid1);
 		
+#ifdef PRACT1
 			child2_work(pid1);
+#else
+			close(fd[0]);
+			child2_work(fd[1]);
+#endif
 			exit(0);
 		}
 
@@ -125,11 +172,17 @@ int status;
 		signal(SIGUSR2,trap_SIG2);
 		//HIJO 1
 		while(1) {
-//			printf("Soy el hijo 1:%ld\n",getpid());
-			sleep(4);
+			printf("Soy el hijo 1:%ld\n",getpid());
+			sleep(1);
 			if(flg) {
 				//Codigo
+#ifdef PRACT1
 				child1_work();
+#else
+				close(fd[1]);
+				printf("SOY CHILD1 %d\n",fd[0]);
+				child1_work(fd[0]);
+#endif
 				flg=0;
 			}
 			if((nthr > nthrlaunched) && (nthr<MAX_THR)) {
