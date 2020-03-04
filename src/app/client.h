@@ -4,3 +4,6 @@
 #define CNL_CLI 0x200L
 
 #define MAX_BUF 256
+
+//#define FIFO
+#define FIFONAME "/tmp/fifo-srv"

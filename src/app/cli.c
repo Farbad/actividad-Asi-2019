@@ -11,7 +11,8 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-#include "utils.h"
+#include <utils.h>
+
 #include "client.h"
 
 #define PRACT2
@@ -24,45 +25,61 @@ struct msgbuf{
 
 int snd_msg(int id, char *txt)
 {
-//char buf[256];
-struct msgbuf msg;
-static int val=0;
-	msg.cnl=CNL_SRV;
-	sprintf(msg.mtext,"MSG %d<%s>FIN\n",val++,txt);
-	printf("TX:<%s>\n",msg.mtext);
-	msgsnd(id,&msg,strlen(msg.mtext),0);
+#ifdef FIFO
+	write(id,txt,strlen(txt)-1);
+#else
+char buf[256];
+char *mn;
+	*((long *)buf)=CNL_SRV;
+	mn = buf+sizeof(long);
+	printf("TX:<%s>\n",txt);
+	mn+=sprintf(mn,"%s",txt);
+	msgsnd(id,buf,mn-buf-sizeof(long),0);
+#endif
+	return(1);
 }
-#if 0
+
 int read_msg(int id)
 {
 char buf[MAX_BUF];
 int n;
-struct msgbuf *msg;
-	msg= (struct msgbuf *) buf;
-	printf("Voy a esperar mensajes en el canal %ld\n",CNL_SRV);
-	if((n=msgrcv(id,buf,MAX_BUF,CNL_SRV)) == -1) {
+	printf("Voy a esperar mensajes en el canal %ld\n",CNL_CLI);
+	if((n=msgrcv(id,buf,MAX_BUF,getpid(),0)) == -1) {
 		perror("msgrcv");
 		exit(2);
 	}
-	printf("He recibido el mensaje (%d): <%s>\n", msg->mtext);
+	buf[sizeof(long)+n]=0;
+	printf("He recibido el mensaje (%d): <%s>\n",*((long*)buf),
+			&buf[sizeof(long)]);
 	return(n);
 }
-#endif
 
 int main(int argc,char *argv[])
 {
 int idq;
+char buf[256];
+#ifdef FIFO
+	printf("Voy a abrir el dispositivo FIFO %s\n",FIFONAME);
+	if((idq=open(FIFONAME,O_WRONLY))== -1) {
+		perror("Error en FIFO:");
+		exit(1);
+	}
+	printf("Tengo acceso al fifo\n");
+#else
 	printf("Voy a abrir la cola de mensajes %lx\n",CLAVE);
 	if((idq=msgget(CLAVE,IPC_CREAT | 0666)) == -1) {
 		perror("ACCESO A LA COLA DE MENSAJES");
 		exit(1);
 	}
 	printf("Tengo acceso a la cola de mensajes\n");
+#endif
 
 	while(1) {
-		snd_msg(idq,"Mi primer mensaje");
-//		read_msg(idq);
-		sleep(2);
+		printf("Escribe el mensaje a enviar:\n");
+		fgets(buf,sizeof(buf),stdin);
+		snd_msg(idq,buf);
+		printf("Voy a esperar la respuesta\n");
+		read_msg(idq);
 	}
 
 }
