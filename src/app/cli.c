@@ -32,6 +32,8 @@ char buf[256];
 char *mn;
 	*((long *)buf)=CNL_SRV;
 	mn = buf+sizeof(long);
+	*((long *)mn)=getpid();
+	mn = buf+sizeof(long);
 	printf("TX:<%s>\n",txt);
 	mn+=sprintf(mn,"%s",txt);
 	msgsnd(id,buf,mn-buf-sizeof(long),0);

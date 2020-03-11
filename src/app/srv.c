@@ -25,14 +25,14 @@ struct msgbuf{
 	char mtext[200];
 };
 
-int snd_msg(int id, char *txt)
+int snd_msg(int id, long cnl, char *txt)
 {
 #ifdef FIFO
 	write(id,txt,strlen(txt));
 #else
 char buf[256];
 char *mn;
-	*((long *)buf)=CNL_CLI;
+	*((long *)buf)=cnl;
 	mn = buf + sizeof(long);
 	mn += sprintf(mn,"%s",txt);
 	printf("TX(%ld):<%s>\n",*((long *)buf),txt);
@@ -55,17 +55,22 @@ int n;
 	printf("RX:<%s>\n",toupper_str(buf));
 	
 #else
+char buf[256];
+char *mn;
+long *pid;
 struct msgbuf *msg;
-	msg= (struct msgbuf *) buf;
 	printf("Voy a esperar mensajes en el canal %ld\n",CNL_SRV);
 	if((n=msgrcv(id,buf,MAX_BUF,CNL_SRV,0)) == -1) {
 		perror("msgrcv");
 		exit(2);
 	}
-	msg->mtext[n]='\0';
-	toupper_str(msg->mtext);
+	buf[n]='\0';
+
+	pid=(long *)(buf+sizeof(long));
+	mn= buf+2*sizeof(int);
+	toupper_str(mn);
 	printf("He recibido el mensaje (%d): <%s>\n", msg->cnl,msg->mtext);
-	snd_msg(id,msg->mtext);
+	snd_msg(id,*pid,msg->mtext);
 #endif
 	return(n);
 }
