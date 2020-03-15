@@ -71,8 +71,8 @@ main()
 	//	El 0 de la función semctl es el índice del semáforo que queremos
 	//	inicializar dentro del array de 10 que hemos pedido.
 	//
-	arg.val = 1;
-	semctl (Id_Semaforo, 0, SETVAL, &arg);
+	arg.val = 3;
+	semctl (Id_Semaforo, 0, SETVAL, arg);
 
 	//
 	//	Para "pasar" por el semáforo parándonos si está "rojo", debemos rellenar
