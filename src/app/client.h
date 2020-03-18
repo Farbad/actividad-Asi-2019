@@ -7,3 +7,6 @@
 
 //#define FIFO
 #define FIFONAME "/tmp/fifo-srv"
+#define NSEMS 5
+#define SIZE_SHM 1024
+

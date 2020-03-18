@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
 
 #include <utils.h>
 
@@ -17,6 +19,9 @@
 
 #define PRACT2
 #define MSGFLG
+
+struct sembuf blk_cli[]={{0,-1,0},{1,1,0}};
+struct sembuf unblk_cli[]={{0,1,0},{1,-1,0}};
 
 struct msgbuf{
 	long cnl;
@@ -58,8 +63,10 @@ int n;
 
 int main(int argc,char *argv[])
 {
-int idq;
+int idq,ids,idm;
 char buf[256];
+char *mem;
+int val;
 #ifdef FIFO
 	printf("Voy a abrir el dispositivo FIFO %s\n",FIFONAME);
 	if((idq=open(FIFONAME,O_WRONLY))== -1) {
@@ -76,6 +83,29 @@ char buf[256];
 	printf("Tengo acceso a la cola de mensajes\n");
 #endif
 
+	printf("Voy a abrir la memoria compartida %lx\n",CLAVE);
+	if((idm=shmget(CLAVE,SIZE_SHM,IPC_CREAT | 0666)) == -1) {
+		perror("ACCESO A LA MEMORIA COMPARTIDA");
+		exit(1);
+	}
+	mem = (char *)shmat(idm,NULL,0);
+	printf("Tengo acceso a la memoria compartida mem=%p\n",mem);
+
+	printf("Voy a abrir los semaforos %lx\n",CLAVE);
+	if((ids=semget(CLAVE,NSEMS,IPC_CREAT | 0666)) == -1) {
+		perror("ACCESO A SEMAFOROS");
+		exit(1);
+	}
+	printf("Tengo acceso al semaforo\n");
+
+	printf("Puedo entrar?......\n");
+	semop(ids,blk_cli,1);
+	printf("Gracias...\n");
+	printf("EL mensaje de bienvenida es:<%s>\n",mem);
+	val = *((int *)(mem+320));
+	printf("El numero secreto es:%d\n",val);
+	printf("EL mensaje ASCII es: <%s>\n",mem+328);
+
 	while(1) {
 		printf("Escribe el mensaje a enviar:\n");
 		fgets(buf,sizeof(buf),stdin);
@@ -87,5 +117,8 @@ char buf[256];
 		printf("Voy a esperar la respuesta\n");
 		read_msg(idq);
 	}
+	printf("Voy a salir en 2 segundos\n");
+	sleep(2);
+	semop(ids,unblk_cli,1);
 
 }

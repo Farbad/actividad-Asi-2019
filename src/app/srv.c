@@ -9,6 +9,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/ipc.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
 #include <sys/msg.h>
 
 #include <utils.h>
@@ -23,6 +25,10 @@
 struct msgbuf{
 	long cnl;
 	char mtext[200];
+};
+
+union semun {
+	int val;
 };
 
 int snd_msg(int id, long cnl, char *txt)
@@ -75,7 +81,9 @@ long *pid;
 
 int main(int argc,char *argv[])
 {
-int idq;
+int idq,idm,ids;
+char *mem;
+union semun ini={.val=3};
 #ifdef FIFO
 	printf("Voy a abrir el dispositivo FIFO %s\n",FIFONAME);
 	if((idq=open(FIFONAME,O_RDONLY))== -1) {
@@ -91,7 +99,25 @@ int idq;
 	}
 	printf("Tengo acceso a la cola de mensajes\n");
 #endif
+	printf("Voy a abrir la memoria compartida %lx\n",CLAVE);
+	if((idm=shmget(CLAVE,SIZE_SHM,IPC_CREAT | 0666)) == -1) {
+		perror("ACCESO A LA MEMORIA COMPARTIDA");
+		exit(1);
+	}
+	mem = (char *)shmat(idm,NULL,0);
+	printf("Tengo acceso a la memoria compartida mem=%p\n",mem);
 
+	printf("Voy a abrir los semaforos %lx\n",CLAVE);
+	if((ids=semget(CLAVE,NSEMS,IPC_CREAT | 0666)) == -1) {
+		perror("ACCESO A SEMAFOROS");
+		exit(1);
+	}
+	printf("Tengo acceso al semaforo\n");
+
+	sprintf(mem,"Hola que tal estais. Soy el servidor %ld\n",getpid());
+	*((int *)(mem+320))=100;
+	sprintf(mem+328,"Escribo el valor 200");
+	semctl(ids,0,SETVAL,ini);
 	while(1) {
 		read_msg(idq);
 	}
