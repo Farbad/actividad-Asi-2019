@@ -55,22 +55,20 @@ int n;
 	printf("RX:<%s>\n",toupper_str(buf));
 	
 #else
-char buf[256];
 char *mn;
 long *pid;
-struct msgbuf *msg;
 	printf("Voy a esperar mensajes en el canal %ld\n",CNL_SRV);
 	if((n=msgrcv(id,buf,MAX_BUF,CNL_SRV,0)) == -1) {
 		perror("msgrcv");
 		exit(2);
 	}
-	buf[n]='\0';
+	buf[n+sizeof(long)]='\0';
 
 	pid=(long *)(buf+sizeof(long));
-	mn= buf+2*sizeof(int);
+	mn= buf+2*sizeof(long);
+	printf("He recibido el mensaje (%ld): <%s>\n", *((long *)buf),mn);
 	toupper_str(mn);
-	printf("He recibido el mensaje (%d): <%s>\n", msg->cnl,msg->mtext);
-	snd_msg(id,*pid,msg->mtext);
+	snd_msg(id,*pid,mn);
 #endif
 	return(n);
 }

@@ -33,7 +33,7 @@ char *mn;
 	*((long *)buf)=CNL_SRV;
 	mn = buf+sizeof(long);
 	*((long *)mn)=getpid();
-	mn = buf+sizeof(long);
+	mn += sizeof(long);
 	printf("TX:<%s>\n",txt);
 	mn+=sprintf(mn,"%s",txt);
 	msgsnd(id,buf,mn-buf-sizeof(long),0);
@@ -45,7 +45,7 @@ int read_msg(int id)
 {
 char buf[MAX_BUF];
 int n;
-	printf("Voy a esperar mensajes en el canal %ld\n",CNL_CLI);
+	printf("Voy a esperar mensajes en el canal %ld\n",getpid());
 	if((n=msgrcv(id,buf,MAX_BUF,getpid(),0)) == -1) {
 		perror("msgrcv");
 		exit(2);
@@ -79,6 +79,10 @@ char buf[256];
 	while(1) {
 		printf("Escribe el mensaje a enviar:\n");
 		fgets(buf,sizeof(buf),stdin);
+		printf("La entrada de teclado es:<%s>\n",buf);
+		if(!strcmp("quit\n",buf)) {
+			break;
+		}
 		snd_msg(idq,buf);
 		printf("Voy a esperar la respuesta\n");
 		read_msg(idq);
