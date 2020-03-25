@@ -22,6 +22,18 @@
 
 struct sembuf blk_cli[]={{0,-1,0},{1,1,0}};
 struct sembuf unblk_cli[]={{0,1,0},{1,-1,0}};
+struct sembuf blk_read[]={{2,-1,0}};
+struct sembuf unblk_read[]={{2,1,0}};
+
+char *msg_lst[MAX_MSG]={
+	"Primer mensaje",
+	"segundo mensaje",
+	"tercer mensaje",
+	"cuarto mensaje",
+	"quinto mensaje",
+	"sexto mensaje",
+	"septimo mensaje",
+};
 
 struct msgbuf{
 	long cnl;
@@ -61,14 +73,39 @@ int n;
 	return(n);
 }
 
+actualizar_contador(int *cnt, int ids)
+{
+int val2;
+/***/
+//	semop(ids,blk_read,1);
+	printf("El contador mensajes=%d\n",val2=*cnt);
+	sleep(1);
+	*cnt=val2+1;
+	printf("El contador lo pongo mensajes=%d\n",*cnt);
+	sleep(1);
+	printf("El contador queda mensajes=%d\n",*cnt);
+//	semop(ids,unblk_read,1);
+/****/
+}
+
 int main(int argc,char *argv[])
 {
+int pid_hijo;
 int idq,ids,idm;
 char buf[256];
 char *mem;
 int val;
+int *tbl_cnt;
+int i,status;
 #ifdef FIFO
 	printf("Voy a abrir el dispositivo FIFO %s\n",FIFONAME);
+	if( getpid() == CNL_SRV) {
+		perror("Coincide con el canla del servidor\n");
+		if((pid_hijo=fork())) {
+			waitpid(pid_hijo,&status,0);
+			exit(0);
+		} 
+	}
 	if((idq=open(FIFONAME,O_WRONLY))== -1) {
 		perror("Error en FIFO:");
 		exit(1);
@@ -105,17 +142,27 @@ int val;
 	val = *((int *)(mem+320));
 	printf("El numero secreto es:%d\n",val);
 	printf("EL mensaje ASCII es: <%s>\n",mem+328);
+	tbl_cnt = (int *)(mem+DSP_CNT);
 
-	while(1) {
+	while(argc==1) {
 		printf("Escribe el mensaje a enviar:\n");
 		fgets(buf,sizeof(buf),stdin);
 		printf("La entrada de teclado es:<%s>\n",buf);
 		if(!strcmp("quit\n",buf)) {
 			break;
 		}
+		
+		actualizar_contador(tbl_cnt,ids);
 		snd_msg(idq,buf);
 		printf("Voy a esperar la respuesta\n");
 		read_msg(idq);
+	}
+	while(argc!=1) {
+		for(i=0;i<MAX_MSG;i++) {
+			actualizar_contador(&tbl_cnt[0],ids);
+			snd_msg(idq,msg_lst[i]);
+			sleep(1);
+		}
 	}
 	printf("Voy a salir en 2 segundos\n");
 	sleep(2);

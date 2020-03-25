@@ -10,3 +10,6 @@
 #define NSEMS 5
 #define SIZE_SHM 1024
 
+#define DSP_CNT 300
+#define MAX_MSG 7
+
