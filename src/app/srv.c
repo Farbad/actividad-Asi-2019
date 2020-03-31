@@ -20,12 +20,6 @@
 //
 
 #define PRACT2
-#define MSGFLG
-
-struct msgbuf{
-	long cnl;
-	char mtext[200];
-};
 
 union semun {
 	int val;
@@ -79,47 +73,57 @@ long *pid;
 	return(n);
 }
 
+int init_resources_srv(int *idq,int *ids,int *idm,char **mem)
+{
+#ifdef FIFO
+	printf("Voy a abrir el dispositivo FIFO %s\n",FIFONAME);
+	if((*idq=open(FIFONAME,O_RDONLY))== -1) {
+		perror("Error en FIFO:");
+		return(-1);
+	}
+	printf("Tengo acceso al fifo\n");
+#else
+	printf("Voy a abrir la cola de mensajes %lx\n",CLAVE);
+	if((*idq=msgget(CLAVE,IPC_CREAT | 0666)) == -1) {
+		perror("ACCESO A LA COLA DE MENSAJES");
+		return(-1);
+	}
+	printf("Tengo acceso a la cola de mensajes\n");
+#endif
+
+	printf("Voy a abrir la memoria compartida %lx\n",CLAVE);
+	if((*idm=shmget(CLAVE,SIZE_SHM,IPC_CREAT | 0666)) == -1) {
+		perror("ACCESO A LA MEMORIA COMPARTIDA");
+		return(-1);
+	}
+	*mem = (char *)shmat(*idm,NULL,0);
+	printf("Tengo acceso a la memoria compartida mem=%p\n",*mem);
+
+	printf("Voy a abrir los semaforos %lx\n",CLAVE);
+	if((*ids=semget(CLAVE,NSEMS,IPC_CREAT | 0666)) == -1) {
+		perror("ACCESO A SEMAFOROS");
+		return(-1);
+	}
+	printf("Tengo acceso al semaforo\n");
+	return(1);
+}
+
 int main(int argc,char *argv[])
 {
 int idq,idm,ids;
 char *mem;
 union semun ini={.val=3};
-#ifdef FIFO
-	printf("Voy a abrir el dispositivo FIFO %s\n",FIFONAME);
-	if((idq=open(FIFONAME,O_RDONLY))== -1) {
-		perror("Error en FIFO:");
-		exit(1);
-	}
-	printf("Tengo acceso al fifo\n");
-#else
-	printf("Voy a abrir la cola de mensajes %lx\n",CLAVE);
-	if((idq=msgget(CLAVE,IPC_CREAT | 0666)) == -1) {
-		perror("ACCESO A LA COLA DE MENSAJES");
-		exit(1);
-	}
-	printf("Tengo acceso a la cola de mensajes\n");
-#endif
-	printf("Voy a abrir la memoria compartida %lx\n",CLAVE);
-	if((idm=shmget(CLAVE,SIZE_SHM,IPC_CREAT | 0666)) == -1) {
-		perror("ACCESO A LA MEMORIA COMPARTIDA");
-		exit(1);
-	}
-	mem = (char *)shmat(idm,NULL,0);
-	printf("Tengo acceso a la memoria compartida mem=%p\n",mem);
 
-	printf("Voy a abrir los semaforos %lx\n",CLAVE);
-	if((ids=semget(CLAVE,NSEMS,IPC_CREAT | 0666)) == -1) {
-		perror("ACCESO A SEMAFOROS");
+	if(init_resources_srv(&idq,&ids,&idm,&mem) == -1) {
+		perror("PRoblemas al inicializar recursos");
 		exit(1);
 	}
-	printf("Tengo acceso al semaforo\n");
 
-	sprintf(mem,"Hola que tal estais. Soy el servidor %ld\n",getpid());
+	sprintf(mem,"Hola que tal estais. Soy el servidor %ld\n",(long)getpid());
 	*((int *)(mem+320))=100;
 	sprintf(mem+328,"Escribo el valor 200");
 	semctl(ids,0,SETVAL,ini);
 	while(1) {
 		read_msg(idq);
 	}
-
 }

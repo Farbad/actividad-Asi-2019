@@ -35,11 +35,6 @@ char *msg_lst[MAX_MSG]={
 	"septimo mensaje",
 };
 
-struct msgbuf{
-	long cnl;
-	char mtext[200];
-};
-
 int snd_msg(int id, char *txt)
 {
 #ifdef FIFO
@@ -62,18 +57,18 @@ int read_msg(int id)
 {
 char buf[MAX_BUF];
 int n;
-	printf("Voy a esperar mensajes en el canal %ld\n",getpid());
+	printf("Voy a esperar mensajes en el canal %ld\n",(long)getpid());
 	if((n=msgrcv(id,buf,MAX_BUF,getpid(),0)) == -1) {
 		perror("msgrcv");
 		exit(2);
 	}
 	buf[sizeof(long)+n]=0;
-	printf("He recibido el mensaje (%d): <%s>\n",*((long*)buf),
+	printf("He recibido el mensaje (%ld): <%s>\n",*((long*)buf),
 			&buf[sizeof(long)]);
 	return(n);
 }
 
-actualizar_contador(int *cnt, int ids)
+int actualizar_contador(int *cnt, int ids)
 {
 int val2;
 /***/
@@ -88,63 +83,60 @@ int val2;
 /****/
 }
 
-int main(int argc,char *argv[])
+int init_resources(int *idq,int *ids,int *idm,char **mem)
 {
 int pid_hijo;
-int idq,ids,idm;
-char buf[256];
-char *mem;
-int val;
-int *tbl_cnt;
-int i,status;
-#ifdef FIFO
-	printf("Voy a abrir el dispositivo FIFO %s\n",FIFONAME);
+int status;
 	if( getpid() == CNL_SRV) {
 		perror("Coincide con el canla del servidor\n");
 		if((pid_hijo=fork())) {
 			waitpid(pid_hijo,&status,0);
-			exit(0);
+			return(-1);
 		} 
 	}
-	if((idq=open(FIFONAME,O_WRONLY))== -1) {
+#ifdef FIFO
+	printf("Voy a abrir el dispositivo FIFO %s\n",FIFONAME);
+	if((*idq=open(FIFONAME,O_WRONLY))== -1) {
 		perror("Error en FIFO:");
-		exit(1);
+		return(-1);
 	}
 	printf("Tengo acceso al fifo\n");
 #else
 	printf("Voy a abrir la cola de mensajes %lx\n",CLAVE);
-	if((idq=msgget(CLAVE,IPC_CREAT | 0666)) == -1) {
+	if((*idq=msgget(CLAVE,IPC_CREAT | 0666)) == -1) {
 		perror("ACCESO A LA COLA DE MENSAJES");
-		exit(1);
+		return(-1);
 	}
 	printf("Tengo acceso a la cola de mensajes\n");
 #endif
 
 	printf("Voy a abrir la memoria compartida %lx\n",CLAVE);
-	if((idm=shmget(CLAVE,SIZE_SHM,IPC_CREAT | 0666)) == -1) {
+	if((*idm=shmget(CLAVE,SIZE_SHM,IPC_CREAT | 0666)) == -1) {
 		perror("ACCESO A LA MEMORIA COMPARTIDA");
-		exit(1);
+		return(-1);
 	}
-	mem = (char *)shmat(idm,NULL,0);
-	printf("Tengo acceso a la memoria compartida mem=%p\n",mem);
+	*mem = (char *)shmat(*idm,NULL,0);
+	printf("Tengo acceso a la memoria compartida mem=%p\n",*mem);
 
 	printf("Voy a abrir los semaforos %lx\n",CLAVE);
-	if((ids=semget(CLAVE,NSEMS,IPC_CREAT | 0666)) == -1) {
+	if((*ids=semget(CLAVE,NSEMS,IPC_CREAT | 0666)) == -1) {
 		perror("ACCESO A SEMAFOROS");
-		exit(1);
+		return(-1);
 	}
 	printf("Tengo acceso al semaforo\n");
+	return(1);
+}
 
-	printf("Puedo entrar?......\n");
-	semop(ids,blk_cli,1);
-	printf("Gracias...\n");
-	printf("EL mensaje de bienvenida es:<%s>\n",mem);
-	val = *((int *)(mem+320));
-	printf("El numero secreto es:%d\n",val);
-	printf("EL mensaje ASCII es: <%s>\n",mem+328);
+
+int snd_manual_msg(int ids, int idq,char *mem)
+{
+int i;
+int *tbl_cnt;
+char buf[256];
+
 	tbl_cnt = (int *)(mem+DSP_CNT);
 
-	while(argc==1) {
+	while(1) {
 		printf("Escribe el mensaje a enviar:\n");
 		fgets(buf,sizeof(buf),stdin);
 		printf("La entrada de teclado es:<%s>\n",buf);
@@ -157,15 +149,51 @@ int i,status;
 		printf("Voy a esperar la respuesta\n");
 		read_msg(idq);
 	}
-	while(argc!=1) {
+	return(1);
+}
+
+int snd_automatic_msg(int ids, int idq,char *mem, int lapsus)
+{
+int i;
+int *tbl_cnt;
+	tbl_cnt = (int *)(mem+DSP_CNT);
+	while(1) {
 		for(i=0;i<MAX_MSG;i++) {
 			actualizar_contador(&tbl_cnt[0],ids);
 			snd_msg(idq,msg_lst[i]);
-			sleep(1);
+			sleep(lapsus);
 		}
 	}
+	return(1);
+}
+
+int main(int argc,char *argv[])
+{
+int idq,ids,idm;
+char *mem;
+int val;
+
+	if(init_resources(&idq,&ids,&idm,&mem) == -1) {
+		perror("Problemas de inicialización");
+		exit(1);
+	}
+
+	printf("Puedo entrar?......\n");
+	semop(ids,blk_cli,1);
+	printf("Gracias...\n");
+	printf("EL mensaje de bienvenida es:<%s>\n",mem);
+	val = *((int *)(mem+320));
+	printf("El numero secreto es:%d\n",val);
+	printf("EL mensaje ASCII es: <%s>\n",mem+328);
+
+	if(argc == 1) {
+		snd_manual_msg(ids,idq,mem);
+	} else if(atoi(argv[1]) > 1) {
+		snd_automatic_msg(ids,idq,mem,atoi(argv[1]));
+	} else
+		snd_automatic_msg(ids,idq,mem,1);
+
 	printf("Voy a salir en 2 segundos\n");
 	sleep(2);
 	semop(ids,unblk_cli,1);
-
 }
