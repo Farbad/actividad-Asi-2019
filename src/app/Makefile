@@ -1,7 +1,7 @@
 
 LIBS=../libraries
 OBJ=app.o
-BINS= app1 app2 cli srv cli-fifo srv-fifo
+BINS= app1 app2 cli srv cli-fifo srv-fifo monitor
 
 all: ${BINS}
 	
@@ -29,6 +29,9 @@ srv: srv.c client.h
 srv-fifo: srv.c client.h
 	gcc -DFIFO -L ${LIBS} -I ../libraries/inc srv.c -lutils -o srv-fifo
 
+monitor: monitor.c client.h
+	gcc -DFIFO -L ${LIBS} -I ../libraries/inc monitor.c -lutils -o monitor
+
 clean:
-	rm ${OBJ}
+	rm ${OBJ} *.o
 	rm ${BINS}

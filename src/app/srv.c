@@ -21,10 +21,6 @@
 
 #define PRACT2
 
-union semun {
-	int val;
-};
-
 int snd_msg(int id, long cnl, char *txt)
 {
 #ifdef FIFO
@@ -108,21 +104,60 @@ int init_resources_srv(int *idq,int *ids,int *idm,char **mem)
 	return(1);
 }
 
+int ini_sem(int ids)
+{
+union semun ini={.val=NCLI};
+union semun ini2={.val=1};
+
+	semctl(ids,0,SETVAL,ini);
+	semctl(ids,2,SETVAL,ini2);
+
+	return(1);
+}
+
+int ini_reg(struct st_reg *rg)
+{
+int i;
+	for(i=0;i<MAX_REG;i++) {
+		rg[i].st=0;	//LIBRE
+		rg[i].pid=0L;	//No pid
+	}
+	return(1);
+}
+
+int ini_counters(int *tbl)
+{
+int i;
+	for(i=0;i<MAX_CNT;i++)
+		tbl[i]=0;
+	return(1);
+}
+
+int ini_mem(char *mem)
+{
+	ini_counters((int *) (mem+DSP_CNT));
+	ini_reg((struct st_reg *)(mem+DSP_REG));
+		
+	sprintf(mem,"Hola que tal estais. Soy el servidor %ld\n",(long)getpid());
+
+//	*((int *)(mem+320))=100;
+//	sprintf(mem+328,"Escribo el valor 200");
+	return(1);
+}
+
 int main(int argc,char *argv[])
 {
 int idq,idm,ids;
 char *mem;
-union semun ini={.val=3};
 
 	if(init_resources_srv(&idq,&ids,&idm,&mem) == -1) {
 		perror("PRoblemas al inicializar recursos");
 		exit(1);
 	}
 
-	sprintf(mem,"Hola que tal estais. Soy el servidor %ld\n",(long)getpid());
-	*((int *)(mem+320))=100;
-	sprintf(mem+328,"Escribo el valor 200");
-	semctl(ids,0,SETVAL,ini);
+	ini_sem(ids);
+	ini_mem(mem);
+
 	while(1) {
 		read_msg(idq);
 	}

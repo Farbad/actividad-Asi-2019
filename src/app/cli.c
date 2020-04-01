@@ -20,10 +20,10 @@
 #define PRACT2
 #define MSGFLG
 
-struct sembuf blk_cli[]={{0,-1,0},{1,1,0}};
-struct sembuf unblk_cli[]={{0,1,0},{1,-1,0}};
-struct sembuf blk_read[]={{2,-1,0}};
-struct sembuf unblk_read[]={{2,1,0}};
+struct sembuf blk_cli[]={{0,-1,SEM_UNDO},{1,1,SEM_UNDO}};
+struct sembuf unblk_cli[]={{0,1,SEM_UNDO},{1,-1,SEM_UNDO}};
+struct sembuf blk_read[]={{2,-1,SEM_UNDO}};
+struct sembuf unblk_read[]={{2,1,SEM_UNDO}};
 
 char *msg_lst[MAX_MSG]={
 	"Primer mensaje",
@@ -167,11 +167,42 @@ int *tbl_cnt;
 	return(1);
 }
 
+int read_memory(char *mem)
+{
+int val;
+	printf("EL mensaje de bienvenida es:<%s>\n",mem);
+	val = *((int *)(mem+320));
+	printf("El numero secreto es:%d\n",val);
+	printf("EL mensaje ASCII es: <%s>\n",mem+328);
+	return(1);
+}
+
+int search_reg(struct st_reg *tbl)
+{
+int i;
+	for(i=0;i<MAX_REG;i++) {
+		if(tbl[i].st == 0)
+			return(i);
+	}
+	return(-1);
+}
+
+int ini_reg_cli(struct st_reg *tbl)
+{
+int inx;
+	if( (inx= search_reg(tbl)) == -1)
+		return(-1);
+	tbl[inx].st = 1;	// Occupied
+	tbl[inx].pid = getpid();	// pid
+	return(inx);
+}
+
 int main(int argc,char *argv[])
 {
 int idq,ids,idm;
 char *mem;
-int val;
+struct st_reg *tbl;
+int inx;
 
 	if(init_resources(&idq,&ids,&idm,&mem) == -1) {
 		perror("Problemas de inicialización");
@@ -181,10 +212,10 @@ int val;
 	printf("Puedo entrar?......\n");
 	semop(ids,blk_cli,1);
 	printf("Gracias...\n");
-	printf("EL mensaje de bienvenida es:<%s>\n",mem);
-	val = *((int *)(mem+320));
-	printf("El numero secreto es:%d\n",val);
-	printf("EL mensaje ASCII es: <%s>\n",mem+328);
+
+	read_memory(mem);
+	
+	inx=ini_reg_cli((struct st_reg *)(mem+DSP_REG));
 
 	if(argc == 1) {
 		snd_manual_msg(ids,idq,mem);
@@ -195,5 +226,6 @@ int val;
 
 	printf("Voy a salir en 2 segundos\n");
 	sleep(2);
+	((struct st_reg *)(mem+DSP_REG))[inx].st = 0;
 	semop(ids,unblk_cli,1);
 }
