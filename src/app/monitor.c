@@ -85,6 +85,7 @@ int val;
 
 int take_snap(int ids,char *mem)
 {
+	printf("\n------------------------------------------------------------------------\n");
 	print_counters((int *) (mem+DSP_CNT));
 	print_registers((struct st_reg *)(mem+DSP_REG));
 	print_semvalues(ids);

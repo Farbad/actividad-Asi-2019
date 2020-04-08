@@ -72,14 +72,16 @@ int actualizar_contador(int *cnt, int ids)
 {
 int val2;
 /***/
-//	semop(ids,blk_read,1);
+	semop(ids,blk_read,1);
+	printf("\nvvvvvvvvvv %ld vvvvvvvvvv\n",(long) getpid());
 	printf("El contador mensajes=%d\n",val2=*cnt);
 	sleep(1);
 	*cnt=val2+1;
 	printf("El contador lo pongo mensajes=%d\n",*cnt);
 	sleep(1);
 	printf("El contador queda mensajes=%d\n",*cnt);
-//	semop(ids,unblk_read,1);
+	printf("\n^^^^^^^^^%ld ^^^^^^^^\n",(long) getpid());
+	semop(ids,unblk_read,1);
 /****/
 }
 
@@ -215,7 +217,10 @@ int inx;
 
 	read_memory(mem);
 	
-	inx=ini_reg_cli((struct st_reg *)(mem+DSP_REG));
+	if( (inx=ini_reg_cli((struct st_reg *)(mem+DSP_REG))) == -1)
+		perror("No ha sido posible localizar un registro LIBRE\n");
+
+	printf("Trabajando en registro con indice %d\n",inx);
 
 	if(argc == 1) {
 		snd_manual_msg(ids,idq,mem);
@@ -226,6 +231,7 @@ int inx;
 
 	printf("Voy a salir en 2 segundos\n");
 	sleep(2);
-	((struct st_reg *)(mem+DSP_REG))[inx].st = 0;
+	if(inx >= 0)
+		((struct st_reg *)(mem+DSP_REG))[inx].st = 0;
 	semop(ids,unblk_cli,1);
 }

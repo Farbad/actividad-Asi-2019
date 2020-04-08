@@ -12,6 +12,7 @@
 #include <sys/sem.h>
 #include <sys/shm.h>
 #include <sys/msg.h>
+#include <errno.h>
 
 #include <utils.h>
 #include "client.h"
@@ -69,6 +70,19 @@ long *pid;
 	return(n);
 }
 
+int clean_msg_pending(int idq)
+{
+char buf[256];
+	errno = 0;
+	do {
+		if( msgrcv(idq,buf,sizeof(buf)-sizeof(long),0L,IPC_NOWAIT) == -1)
+			if(errno == ENOMSG)
+				break;;
+		printf("Leido mensaje pendiente de %ld\n",((long *)buf)[0]);
+	} while(errno!=ENOMSG); 
+	return(1);
+}
+
 int init_resources_srv(int *idq,int *ids,int *idm,char **mem)
 {
 #ifdef FIFO
@@ -85,6 +99,7 @@ int init_resources_srv(int *idq,int *ids,int *idm,char **mem)
 		return(-1);
 	}
 	printf("Tengo acceso a la cola de mensajes\n");
+	clean_msg_pending(*idq);
 #endif
 
 	printf("Voy a abrir la memoria compartida %lx\n",CLAVE);
